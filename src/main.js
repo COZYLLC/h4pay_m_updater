@@ -6,6 +6,7 @@ import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faUpload } from '@fortawesome/free-solid-svg-icons'
 import axios from 'axios';
+import AppInfoParser from 'app-info-parser'
 
 // init Fontawesome
 library.add(faUpload);
@@ -19,6 +20,7 @@ Vue.use(Buefy, {
 
 Vue.config.productionTip = false
 Vue.prototype.$axios = axios
+Vue.prototype.$apkReader = AppInfoParser
 
 new Vue({
   render: h => h(App),

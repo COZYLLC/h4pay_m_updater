@@ -2,19 +2,16 @@
   <div id="app">
     <div class="title">H4Pay 관리 앱 배포</div>
     <div class="container">
-      <b-field label="헌재 버전" horizontal> {{ currVersion }} </b-field>
-      <b-field label="업데이트 대상 버전" horizontal>
-        <b-input
-          type="text"
-          v-model="nextVersion"
-          :placeholder="(currVersion + 0.001).toFixed(3)"
-        />
-      </b-field>
-      <b-field label="변경사항" horizontal>
-        <b-input type="textarea" v-model="changes" />
+      <b-field label="헌재 버전" horizontal>
+        {{ currVersion }} ( {{ currVersionCode }} )
       </b-field>
       <b-field label="APK 파일 업로드" horizontal>
-        <b-upload v-model="dropFile" drag-drop accept=".apk">
+        <b-upload
+          v-model="dropFile"
+          drag-drop
+          accept=".apk"
+          @input="fetchApkInfo"
+        >
           <section class="section">
             <div class="content has-text-centered">
               <p>
@@ -30,9 +27,18 @@
           </section>
         </b-upload>
       </b-field>
-      <b-field>
-        <b-button rounded style="float: right" @click="deploy">배포</b-button>
-      </b-field>
+      <fieldset v-if="nextVersion != null">
+        <b-field label="업데이트 대상 버전" horizontal>
+          {{ nextVersion }} ( {{ nextVersionCode }} )
+        </b-field>
+        <b-field label="변경사항" horizontal>
+          <b-input type="textarea" v-model="changes" />
+        </b-field>
+
+        <b-field>
+          <b-button rounded style="float: right" @click="deploy">배포</b-button>
+        </b-field>
+      </fieldset>
     </div>
   </div>
 </template>
@@ -44,7 +50,9 @@ export default {
     return {
       dropFile: File,
       currVersion: null,
+      currVersionCode: null,
       nextVersion: null,
+      nextVersionCode: null,
       changes: "",
     };
   },
@@ -53,20 +61,31 @@ export default {
     this.$axios
       .get(`${process.env.VUE_APP_API_URL}/version`)
       .then((res) => {
-        this.currVersion = res.data.version;
+        console.log(res);
+        this.currVersion = parseFloat(res.data.result.version);
+        this.currVersionCode = parseInt(res.data.result.versionCode);
       })
       .catch((err) => {
         alert(`현재 버전을 가져올 수 없습니다: ${err.message}`);
       });
   },
   methods: {
+    fetchApkInfo(file) {
+      const parser = new this.$apkReader(file);
+      parser.parse().then((res) => {
+        this.nextVersion = res.versionName;
+        this.nextVersionCode = res.versionCode;
+      });
+    },
     deploy() {
       console.log(
         `${this.currVersion} | ${this.nextVersion} | ${this.changes}`
       );
 
+      console.log(this.nextVersionState);
+
       if (!this.nextVersionState) {
-        alert("업데이트 대상 버전이 올바르지 않습니다!");
+        alert("버전 정보가 올바르지 않습니다!");
         return;
       } else if (!this.changeState) {
         alert("변경사항이 올바르지 않습니다!");
@@ -75,28 +94,48 @@ export default {
 
       let form = new FormData();
       form.append("nextVersion", this.nextVersion);
+      form.append("nextVersionCode", this.nextVersionCode);
       form.append("changes", this.changes);
       form.append("apk", this.dropFile);
 
       this.$axios
         .post(`${process.env.VUE_APP_API_URL}/version/update`, form)
         .then((res) => {
-          console.log(res.data);
+          if (res.data.status) {
+            this.$axios
+              .get(res.data.testUrl)
+              .then((result) => {
+                if (result.status == 200) {
+                  alert("배포가 완료되었습니다!");
+                }
+              })
+              .catch((err) => {
+                alert(
+                  `업로드가 제대로 이뤄지지 않은 것 같아요.\n${err.message}`
+                );
+              });
+          }
+        })
+        .catch((err) => {
+          alert(`업로드가 제대로 이뤄지지 않은 것 같아요.\n${err.message}`);
         });
     },
   },
   computed: {
     nextVersionState() {
       return (
-        this.nextVersion == null ||
-        this.nextVersion.toString().indexOf(".") != -1 ||
-        this.nextVersion == ""
+        this.nextVersion != null &&
+        this.nextVersion.toString().indexOf(".") != -1 &&
+        this.nextVersion != ""
       );
     },
     changeState() {
       return (
         this.changes != null && this.changes != "" && this.changes.length != 0
       );
+    },
+    dropFileState() {
+      return typeof this.dropFile != "function";
     },
   },
 };
