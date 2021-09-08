@@ -23,7 +23,9 @@
               <p v-if="typeof dropFile == 'function'">
                 파일을 선택하거나 드래그하세요
               </p>
-              <p v-if="typeof dropFile != 'function'">{{ dropFile.name }}</p>
+              <div v-else>
+                {{ dropFile.name }}
+              </div>
             </div>
           </section>
         </b-upload>
@@ -62,7 +64,15 @@ export default {
       console.log(
         `${this.currVersion} | ${this.nextVersion} | ${this.changes}`
       );
-      console.log(this.dropFile);
+
+      if (!this.nextVersionState) {
+        alert("업데이트 대상 버전이 올바르지 않습니다!");
+        return;
+      } else if (!this.changeState) {
+        alert("변경사항이 올바르지 않습니다!");
+        return;
+      }
+
       let form = new FormData();
       form.append("nextVersion", this.nextVersion);
       form.append("changes", this.changes);
@@ -73,6 +83,20 @@ export default {
         .then((res) => {
           console.log(res.data);
         });
+    },
+  },
+  computed: {
+    nextVersionState() {
+      return (
+        this.nextVersion == null ||
+        this.nextVersion.toString().indexOf(".") != -1 ||
+        this.nextVersion == ""
+      );
+    },
+    changeState() {
+      return (
+        this.changes != null && this.changes != "" && this.changes.length != 0
+      );
     },
   },
 };
