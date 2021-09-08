@@ -57,11 +57,9 @@ export default {
     };
   },
   created() {
-    console.log(process.env);
     this.$axios
       .get(`${process.env.VUE_APP_API_URL}/version`)
       .then((res) => {
-        console.log(res);
         this.currVersion = parseFloat(res.data.result.version);
         this.currVersionCode = parseInt(res.data.result.versionCode);
       })
