@@ -31,6 +31,6 @@ jobs:
         port: ${{ secrets.H4PAY_PORT }} # default : 22
         script: |
           cd ${{ secrets.H4PAY_PATH }}
-          git pull https://${{ secrets.H4PAY_TOKEN }}@github.com/CaffeineHolic/H4Pay.git
+          git pull https://${{ secrets.H4PAY_TOKEN }}@github.com/CaffeineHolic/h4pay_m_updater.git
           npm install
           npm run build
