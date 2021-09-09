@@ -27,6 +27,9 @@
           </section>
         </b-upload>
       </b-field>
+      <p v-if="isUploaded == true">
+        파일 파싱 중...
+      </p>
       <fieldset v-if="nextVersion != null">
         <b-field label="업데이트 대상 버전" horizontal>
           {{ nextVersion }} ( {{ nextVersionCode }} )
@@ -34,7 +37,6 @@
         <b-field label="변경사항" horizontal>
           <b-input type="textarea" v-model="changes" />
         </b-field>
-
         <b-field>
           <b-button rounded style="float: right" @click="deploy">배포</b-button>
         </b-field>
@@ -54,6 +56,7 @@ export default {
       nextVersion: null,
       nextVersionCode: null,
       changes: "",
+      isUploaded: false,
     };
   },
   created() {
@@ -68,20 +71,21 @@ export default {
       });
   },
   methods: {
-    fetchApkInfo(file) {
-      const parser = new this.$apkReader(file);
-      parser.parse().then((res) => {
+    async fetchApkInfo(file) {
+      this.isUploaded = true;
+      const parser = await new this.$apkReader(file);
+      parser.parse().then(res => {
         this.nextVersion = res.versionName;
         this.nextVersionCode = res.versionCode;
+        this.isUploaded = false;
+      }).catch(err => {
+        this.nextVersion = null;
+        this.nextVersionCode = null;
+        this.isUploaded = false;
+        alert(`APK 파싱에 실패했습니다: ${err}`);
       });
     },
     deploy() {
-      console.log(
-        `${this.currVersion} | ${this.nextVersion} | ${this.changes}`
-      );
-
-      console.log(this.nextVersionState);
-
       if (!this.nextVersionState) {
         alert("버전 정보가 올바르지 않습니다!");
         return;
@@ -131,9 +135,6 @@ export default {
       return (
         this.changes != null && this.changes != "" && this.changes.length != 0
       );
-    },
-    dropFileState() {
-      return typeof this.dropFile != "function";
     },
   },
 };
