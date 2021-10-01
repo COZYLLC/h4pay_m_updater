@@ -27,6 +27,7 @@
           </section>
         </b-upload>
       </b-field>
+      <p v-if="isUploaded == true">파일 파싱 중...</p>
       <fieldset v-if="nextVersion != null">
         <b-field label="업데이트 대상 버전" horizontal>
           {{ nextVersion }} ( {{ nextVersionCode }} )
@@ -34,7 +35,6 @@
         <b-field label="변경사항" horizontal>
           <b-input type="textarea" v-model="changes" />
         </b-field>
-
         <b-field>
           <b-button rounded style="float: right" @click="deploy">배포</b-button>
         </b-field>
@@ -84,11 +84,9 @@ export default {
     };
   },
   created() {
-    console.log(process.env);
     this.$axios
       .get(`${process.env.VUE_APP_API_URL}/version`)
       .then((res) => {
-        console.log(res);
         this.currVersion = parseFloat(res.data.result.version);
         this.currVersionCode = parseInt(res.data.result.versionCode);
       })
@@ -117,20 +115,22 @@ export default {
         .then((x) => x.request.response)
         .catch((error) => error);
     },
-    fetchApkInfo(file) {
-      const parser = new this.$apkReader(file);
-      parser.parse().then((res) => {
-        this.nextVersion = res.versionName;
-        this.nextVersionCode = res.versionCode;
-      });
+    async fetchApkInfo(file) {
+      const parser = await new this.$apkReader(file);
+      parser
+        .parse()
+        .then((res) => {
+          this.nextVersion = res.versionName;
+          this.nextVersionCode = res.versionCode;
+        })
+        .catch((err) => {
+          this.nextVersion = null;
+          this.nextVersionCode = null;
+          this.uploaded = false;
+          alert(`APK 파싱에 실패했습니다: ${err}`);
+        });
     },
     deploy() {
-      console.log(
-        `${this.currVersion} | ${this.nextVersion} | ${this.changes}`
-      );
-
-      console.log(this.nextVersionState);
-
       if (!this.nextVersionState) {
         alert("버전 정보가 올바르지 않습니다!");
         return;
@@ -154,6 +154,7 @@ export default {
             // Check file downloadable
             this.uploadModalActive = false;
             alert("파일 업로드에 성공했습니다!");
+            window.location.reload()
           } else if (res.status == false) {
             const error = new Error("file upload failed");
             this.$Sentry.captureException(error);
@@ -179,9 +180,6 @@ export default {
       return (
         this.changes != null && this.changes != "" && this.changes.length != 0
       );
-    },
-    dropFileState() {
-      return typeof this.dropFile != "function";
     },
   },
 };
