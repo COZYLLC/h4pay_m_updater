@@ -39,6 +39,30 @@
           <b-button rounded style="float: right" @click="deploy">배포</b-button>
         </b-field>
       </fieldset>
+      <b-modal
+        has-modal-card
+        v-model="uploadModalActive"
+        title="업로드"
+        aria-role="dialog"
+        aria-label="Example Modal"
+        aria-modal
+      >
+        <div class="modal-card" style="width: auto">
+          <header class="modal-card-head">
+            <p class="modal-card-title">파일 업로드</p>
+          </header>
+          <section class="modal-card-body">
+            <p style="margin-bottom: 3%">
+              파일 {{ dropFile ? dropFile.name : "" }}
+            </p>
+            <p v-if="!uploaded">업로드 현황: {{ percent }} %</p>
+            <p v-if="uploaded">업로드 완료</p>
+            <b-progress :value="percent" show-value style="width: 100%">
+              {{ percent }}
+            </b-progress>
+          </section>
+        </div>
+      </b-modal>
     </div>
   </div>
 </template>
@@ -54,6 +78,9 @@ export default {
       nextVersion: null,
       nextVersionCode: null,
       changes: "",
+      uploaded: false,
+      uploadModalActive: false,
+      percent: 0,
     };
   },
   created() {
@@ -70,6 +97,26 @@ export default {
       });
   },
   methods: {
+    uploadApk(data) {
+      let config = {
+        onUploadProgress: (progressEvent) => {
+          var percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+
+          // execute the callback
+          this.percent = percentCompleted;
+          return percentCompleted;
+        },
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      };
+      return this.$axios
+        .post(process.env.VUE_APP_API_URL + "/version/update", data, config)
+        .then((x) => x.request.response)
+        .catch((error) => error);
+    },
     fetchApkInfo(file) {
       const parser = new this.$apkReader(file);
       parser.parse().then((res) => {
@@ -97,27 +144,26 @@ export default {
       form.append("nextVersionCode", this.nextVersionCode);
       form.append("changes", this.changes);
       form.append("apk", this.dropFile);
-
-      this.$axios
-        .post(`${process.env.VUE_APP_API_URL}/version/update`, form)
-        .then((res) => {
-          if (res.data.status) {
-            this.$axios
-              .get(res.data.testUrl)
-              .then((result) => {
-                if (result.status == 200) {
-                  alert("배포가 완료되었습니다!");
-                }
-              })
-              .catch((err) => {
-                alert(
-                  `업로드가 제대로 이뤄지지 않은 것 같아요.\n${err.message}`
-                );
-              });
+      this.uploadModalActive = true;
+      this.uploadApk(form, this.onProgress)
+        .then((x) => {
+          console.log(x);
+          const res = JSON.parse(x);
+          if (res.status == true) {
+            this.uploaded = true;
+            // Check file downloadable
+            this.uploadModalActive = false;
+            alert("파일 업로드에 성공했습니다!");
+          } else if (res.status == false) {
+            const error = new Error("file upload failed");
+            this.$Sentry.captureException(error);
+            alert("파일 업로드에 실패했습니다.");
           }
         })
-        .catch((err) => {
-          alert(`업로드가 제대로 이뤄지지 않은 것 같아요.\n${err.message}`);
+        .catch((error) => {
+          this.$Sentry.captureException(error);
+          alert("파일 업로드에 실패했습니다.");
+          console.log(error);
         });
     },
   },
