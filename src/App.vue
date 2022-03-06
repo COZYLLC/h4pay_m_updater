@@ -85,7 +85,7 @@ export default {
   },
   created() {
     this.$axios
-      .get(`${process.env.VUE_APP_API_URL}/version`)
+      .get(`${process.env.VUE_APP_API_URL}/versions`)
       .then((res) => {
         this.currVersion = parseFloat(res.data.result.version);
         this.currVersionCode = parseInt(res.data.result.versionCode);
@@ -111,7 +111,7 @@ export default {
         },
       };
       return this.$axios
-        .post(process.env.VUE_APP_API_URL + "/version/update", data, config)
+        .post(process.env.VUE_APP_API_URL + "/versions/update", data, config)
         .then((x) => x.request.response)
         .catch((error) => error);
     },
